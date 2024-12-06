@@ -1,5 +1,5 @@
 CXX = g++
-CXXFLAG = -O2 -Wall
+CXXFLAGS = -O2 -Wall -fopenmp
 
 SRCS := $(wildcard *.cpp)
 
@@ -12,11 +12,11 @@ all: $(TARGET)
 
 # Rule to build the executable
 $(TARGET): $(OBJS)
-	$(CXX) $(CXXFLAGS) $(OBJS) -fopenmp -o $(TARGET)
+	$(CXX) $(CXXFLAGS) $(OBJS) -o $(TARGET)
 
 # Rule to compile the source files
 .cpp.o:
-	$(CXX) $(CXXFLAGS) -fopenmp -c $< -o $@
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 	
 # Clean rule
 clean:

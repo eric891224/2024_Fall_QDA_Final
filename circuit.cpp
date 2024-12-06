@@ -3,6 +3,7 @@
 #include "fcntl.h"
 #include "unistd.h"
 #include <omp.h>
+#include <iostream>
 
 int NUM_THREADS = 1;
 int EXPONENT = 10;
@@ -45,7 +46,6 @@ void rxGateRaid(State &state, const double angle, const int targQubit)
     double sinAngle, cosAngle;
     sincosf64(angle / 2, &sinAngle, &cosAngle);
 
-    // file initialization
     int fd = open("./state", O_RDWR);
 
     // Complex up, lo;
@@ -61,6 +61,7 @@ void rxGateRaid(State &state, const double angle, const int targQubit)
 
     for (ull t = 0; t < num_tasks; t++)
     {
+        std::cout << t << std::endl;
         // calculate chunk index
         int tid = 0;                                                           // omp_get_thread_num() when using openmp
         int pattern = (targQubit - EXPONENT) < 0 ? 0 : (targQubit - EXPONENT); // equivalent qbit pattern for insert bit 0 function
@@ -72,7 +73,7 @@ void rxGateRaid(State &state, const double angle, const int targQubit)
         pread(fd, &(amps_2[tid * CHUNK_SIZE]), CHUNK_SIZE * sizeof(Complex), chunk_2_id * CHUNK_SIZE * sizeof(Complex));
 
         // computation
-        if (group_size < CHUNK_SIZE)
+        if (group_size <= CHUNK_SIZE)
         {
             for (int compute_id = 0; compute_id < CHUNK_SIZE >> 1; compute_id++)
             {

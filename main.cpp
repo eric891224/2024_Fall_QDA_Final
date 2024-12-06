@@ -153,8 +153,8 @@ int main(int argc, char *argv[])
     // hw1_3_2(n);
     // hw1_3_3(n);
     // hw1_3_4(n);
-    // rx_mem(n);
-    rx_raid(n);
+    rx_mem(n);
+    // rx_raid(n);
     // parallel_write(n);
 
     // #pragma omp parallel for

@@ -160,8 +160,13 @@ def main():
     # hw1_2_2()
     # hw1_2_3()
     # hw1_2_4()
-    # rx_mem()
+    rx_mem(20)
     rx_raid(20)
 
+def debug():
+    file_state = np.fromfile('./state', dtype=np.complex128)
+    print(file_state)
+
 if __name__ == '__main__':
-    main()
+    # main()
+    debug()
