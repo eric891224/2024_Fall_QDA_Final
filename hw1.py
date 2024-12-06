@@ -99,6 +99,38 @@ def hw1_2_4_circuit():
     job = simulator.run(qc, cuStateVec_enable=False)
     return job.result().data()['statevector'].data
 
+def rx_mem_circuit(num_qbits: int):
+    qc = QuantumCircuit(num_qbits)
+    for qubit in range(num_qbits):
+        qc.rx(math.pi / 4, qubit)
+
+    qc.save_statevector()
+    simulator = qiskit_aer.AerSimulator(
+        method='statevector',
+        device='CPU',
+        precision='double',
+        fusion_enable=False,
+        blocking_enable=False,
+    )
+    job = simulator.run(qc, cuStateVec_enable=False)
+    return job.result().data()['statevector'].data
+
+def rx_raid_circuit(num_qbits: int):
+    qc = QuantumCircuit(num_qbits)
+    for qubit in range(num_qbits):
+        qc.rx(math.pi / 4, qubit)
+
+    qc.save_statevector()
+    simulator = qiskit_aer.AerSimulator(
+        method='statevector',
+        device='CPU',
+        precision='double',
+        fusion_enable=False,
+        blocking_enable=False,
+    )
+    job = simulator.run(qc, cuStateVec_enable=False)
+    return job.result().data()['statevector'].data
+
 def hw1_2_1():
     state = hw1_2_1_circuit()
     checker(state, "./rx.txt", "[hw1_3_1]")
@@ -115,11 +147,21 @@ def hw1_2_4():
     state = hw1_2_4_circuit()
     checker(state, "./qft.txt", "[hw1_3_4]")
 
+def rx_mem(num_qbits = 3):
+    state = rx_mem_circuit(num_qbits)
+    checker(state, './rx.mem', "RX MEM")
+
+def rx_raid(num_qbits = 3):
+    state = rx_raid_circuit(num_qbits)
+    checker(state, './state', "RX RAID")
+
 def main():
-    hw1_2_1()
-    hw1_2_2()
-    hw1_2_3()
-    hw1_2_4()
+    # hw1_2_1()
+    # hw1_2_2()
+    # hw1_2_3()
+    # hw1_2_4()
+    # rx_mem()
+    rx_raid(20)
 
 if __name__ == '__main__':
     main()

@@ -3,6 +3,10 @@
 #include <fstream>
 #include <iostream>
 
+#include "fcntl.h"
+#include "unistd.h"
+#include <omp.h>
+
 #include "state.hpp"
 #include "circuit.hpp"
 
@@ -27,6 +31,31 @@ void rx_raid(int n)
     State state;
     state.numQubitTotal = n;
     createState(state);
+
+    // file initialization
+    int fd = open("./state", O_RDWR | O_CREAT, 0777);
+    // allocate storage
+    if (ftruncate(fd, state.numAmpTotal * sizeof(Complex)) != 0)
+    {
+        perror("Failed to allocate space");
+        close(fd);
+    }
+    // init first with one, rest with zero
+    Complex zero = {0.0f, 0.0f}, one = {1.0f, 0.0f};
+    pwrite(fd, &one, sizeof(Complex), 0);
+    for (int i = 1; i < state.numAmpTotal; i++)
+    {
+        pwrite(fd, &zero, sizeof(Complex), i * sizeof(Complex));
+    }
+    close(fd);
+
+    // for (int i = 0; i < state.numAmpTotal; i++)
+    // {
+    //     Complex amp;
+    //     pread(fd, &amp, sizeof(Complex), i * sizeof(Complex));
+    //     printf("Statevec real: %f, imag: %f\n", amp.real, amp.imag);
+    // }
+
     for (int i = 0; i < n; i++)
         rxGateRaid(state, M_PI_4, i);
     ofstream file;
@@ -34,6 +63,16 @@ void rx_raid(int n)
     file.write((char *)state.stateVec, state.numAmpTotal * sizeof(Complex));
     file.close();
     destroyState(state);
+}
+
+void parallel_write(int n)
+{
+    State state;
+    state.numQubitTotal = n;
+    createState(state);
+    createShardedStateFiles(state);
+
+    return;
 }
 
 void hw1_3_1(int n)
@@ -109,13 +148,20 @@ void hw1_3_4(int n)
 
 int main(int argc, char *argv[])
 {
-    int n = 3;
+    int n = 20;
     // hw1_3_1(n);
     // hw1_3_2(n);
     // hw1_3_3(n);
     // hw1_3_4(n);
-    rx_mem(n);
-    // rx_raid(n);
+    // rx_mem(n);
+    rx_raid(n);
+    // parallel_write(n);
+
+    // #pragma omp parallel for
+    //     for (int i = 0; i < 1000000; i++)
+    //     {
+    //         std::cout << i << std::endl;
+    //     }
 
     return 0;
 }

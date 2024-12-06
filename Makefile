@@ -12,11 +12,11 @@ all: $(TARGET)
 
 # Rule to build the executable
 $(TARGET): $(OBJS)
-	$(CXX) $(CXXFLAGS) $(OBJS) -o $(TARGET)
+	$(CXX) $(CXXFLAGS) $(OBJS) -fopenmp -o $(TARGET)
 
 # Rule to compile the source files
 .cpp.o:
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -fopenmp -c $< -o $@
 	
 # Clean rule
 clean:

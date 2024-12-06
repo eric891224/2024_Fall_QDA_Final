@@ -23,12 +23,12 @@ typedef struct
 class ManagedStateVector
 {
 public:
-    double real;
-    double imag;
+    int fd;
     void test();
 };
 
 void createState(State &state);
+void createShardedStateFiles(State &state);
 void printState(const State &state, int num);
 void destroyState(const State &state);
 
