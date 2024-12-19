@@ -1,12 +1,12 @@
 CXX = g++
-CXXFLAGS = -O2 -Wall -fopenmp
+CXXFLAGS = -O2 -Wall -fopenmp -g
 
 SRCS := $(wildcard *.cpp)
 
 # Object files
 OBJS = $(SRCS:.cpp=.o)
 
-TARGET = hw3
+TARGET = simulator
 
 all: $(TARGET)
 

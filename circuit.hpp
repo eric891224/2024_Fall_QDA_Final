@@ -11,8 +11,12 @@ ull insert_bit_0(ull task, const char targ);
 ull insert_bit_1(ull task, const char targ);
 void rxGate(State &state, const double angle, const int targQubit);
 void rxGateRaid(State &state, const double angle, const int targQubit);
-
+void rxGateRaid2(ManagedStateVector &state, const double angle, const int targQubit);
 void hGate(State &state, const int targQubit);
+void hGateRaid(ManagedStateVector &state, const int targQubit);
+
 void cpGate(State &state, const double angle, std::vector<int> targQubits);
+void cpGateRaid(State &state, const double angle, std::vector<int> targQubits);
+void cpGateRaid2(ManagedStateVector &state, const double angle, std::vector<int> targQubits);
 
 #endif

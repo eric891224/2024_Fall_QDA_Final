@@ -1,6 +1,6 @@
 # Compiler and Flags
 CXX = g++
-CXXFLAGS = -Wall -Wextra -O2 -I .. 
+CXXFLAGS = -Wall -Wextra -Og -I .. -g
 
 # Source and Target
 SRC = io_test.cpp

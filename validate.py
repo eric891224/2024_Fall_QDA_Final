@@ -115,10 +115,29 @@ def rx_mem_circuit(num_qbits: int):
     job = simulator.run(qc, cuStateVec_enable=False)
     return job.result().data()['statevector'].data
 
-def rx_raid_circuit(num_qbits: int):
+def h_mem_circuit(num_qbits: int):
     qc = QuantumCircuit(num_qbits)
+    # Apply the h-gates for each qubit
+    for qubit in range(num_qbits):
+        qc.h(qubit)
+
+    qc.save_statevector()
+    simulator = qiskit_aer.AerSimulator(
+        method='statevector',
+        device='CPU',
+        precision='double',
+        fusion_enable=False,
+        blocking_enable=False,
+    )
+    job = simulator.run(qc, cuStateVec_enable=False)
+    return job.result().data()['statevector'].data
+
+def cp_mem_circuit(num_qbits: int):
+    qc = QuantumCircuit(num_qbits)
+    
     for qubit in range(num_qbits):
         qc.rx(math.pi / 4, qubit)
+    qc.cp(math.pi/2, 1, 0)
 
     qc.save_statevector()
     simulator = qiskit_aer.AerSimulator(
@@ -152,19 +171,39 @@ def rx_mem(num_qbits = 3):
     checker(state, './rx.mem', "RX MEM")
 
 def rx_raid(num_qbits = 3):
-    state = rx_raid_circuit(num_qbits)
-    checker(state, './state', "RX RAID")
+    state = rx_mem_circuit(num_qbits)
+    checker(state, './rx.raid', "RX RAID")
+
+def h_mem(num_qbits = 3):
+    state = h_mem_circuit(num_qbits)
+    checker(state, './h.mem', "H MEM")
+
+def h_raid(num_qbits = 3):
+    state = h_mem_circuit(num_qbits)
+    checker(state, './h.raid', "H RAID")
+
+def cp_mem(num_qbits = 3):
+    state = cp_mem_circuit(num_qbits)
+    checker(state, './cp.mem', "CP MEM")
+
+def cp_raid(num_qbits = 3):
+    state = cp_mem_circuit(num_qbits)
+    checker(state, './cp.raid', "CP RAID")
 
 def main():
     # hw1_2_1()
     # hw1_2_2()
     # hw1_2_3()
     # hw1_2_4()
-    rx_mem(20)
-    rx_raid(20)
+    # rx_mem(30)
+    # rx_raid(30)
+    # h_mem(30)
+    # h_raid(30)
+    # cp_mem(30)
+    cp_raid(30)
 
 def debug():
-    file_state = np.fromfile('./state', dtype=np.complex128)
+    file_state = np.fromfile('./cp.raid', dtype=np.complex128)
     print(file_state)
 
 if __name__ == '__main__':
