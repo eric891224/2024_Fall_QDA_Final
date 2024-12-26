@@ -23,59 +23,6 @@ def checker(state, file_name, hw_id):
             print("Validation Failed")
     print("--------")
 
-def hw1_2_1_circuit():
-    qc = QuantumCircuit(qubits)
-    for qubit in range(qubits):
-        qc.rx(math.pi / 4, qubit)
-
-    qc.save_statevector()
-    simulator = qiskit_aer.AerSimulator(
-        method='statevector',
-        device='CPU',
-        precision='double',
-        fusion_enable=False,
-        blocking_enable=False,
-    )
-    job = simulator.run(qc, cuStateVec_enable=False)
-    return job.result().data()['statevector'].data
-
-def hw1_2_2_circuit():
-    qc = QuantumCircuit(qubits)
-    # Apply the h-gates for each qubit
-    # for qubit in range(qubits):
-    #     qc.h(qubit)
-
-    qc.save_statevector()
-    simulator = qiskit_aer.AerSimulator(
-        method='statevector',
-        device='CPU',
-        precision='double',
-        fusion_enable=False,
-        blocking_enable=False,
-    )
-    job = simulator.run(qc, cuStateVec_enable=False)
-    return job.result().data()['statevector'].data
-
-def hw1_2_3_circuit():
-    qc = QuantumCircuit(qubits)
-    # Apply the h-gates for each qubit
-    # for qubit in range(qubits):
-    #     qc.h(qubit)
-    # # Apply cp-gates for each qubit as the document
-    # qc.cp(math.pi/4, 1, 0)
-    # qc.cp(math.pi/4, 2, 0)
-
-    qc.save_statevector()
-    simulator = qiskit_aer.AerSimulator(
-        method='statevector',
-        device='CPU',
-        precision='double',
-        fusion_enable=False,
-        blocking_enable=False,
-    )
-    job = simulator.run(qc, cuStateVec_enable=False)
-    return job.result().data()['statevector'].data
-
 def hw1_2_4_circuit():
     qc = QuantumCircuit(qubits)
     # Implement a qft circuit
@@ -150,21 +97,26 @@ def cp_mem_circuit(num_qbits: int):
     job = simulator.run(qc, cuStateVec_enable=False)
     return job.result().data()['statevector'].data
 
-def hw1_2_1():
-    state = hw1_2_1_circuit()
-    checker(state, "./rx.txt", "[hw1_3_1]")
+def qft_mem_circuit(num_qbits: int):
+    qc = QuantumCircuit(num_qbits)
+    
+    for i in range(num_qbits):
+        qc.h(i)
+        for j in range(i+1, num_qbits):
+            angle = math.pi / (2**(j-i))
+            qc.cp(angle, j, i)
 
-def hw1_2_2():
-    state = hw1_2_2_circuit()
-    checker(state, "./h.txt", "[hw1_3_2]")
+    qc.save_statevector()
+    simulator = qiskit_aer.AerSimulator(
+        method='statevector',
+        device='CPU',
+        precision='double',
+        fusion_enable=False,
+        blocking_enable=False,
+    )
+    job = simulator.run(qc, cuStateVec_enable=False)
+    return job.result().data()['statevector'].data
 
-def hw1_2_3():
-    state = hw1_2_3_circuit()
-    checker(state, "./cp.txt", "[hw1_3_3]")
-
-def hw1_2_4():
-    state = hw1_2_4_circuit()
-    checker(state, "./qft.txt", "[hw1_3_4]")
 
 def rx_mem(num_qbits = 3):
     state = rx_mem_circuit(num_qbits)
@@ -182,6 +134,14 @@ def h_raid(num_qbits = 3):
     state = h_mem_circuit(num_qbits)
     checker(state, './h.raid', "H RAID")
 
+def qft_raid(num_qbits):
+    state = qft_mem_circuit(num_qbits)
+    checker(state, './qft.raid', "QFT RAID")
+
+def qft_mem(num_qbits):
+    state = qft_mem_circuit(num_qbits)
+    # checker(state, './qft.mem', "QFT RAID")
+
 def cp_mem(num_qbits = 3):
     state = cp_mem_circuit(num_qbits)
     checker(state, './cp.mem', "CP MEM")
@@ -191,21 +151,19 @@ def cp_raid(num_qbits = 3):
     checker(state, './cp.raid', "CP RAID")
 
 def main():
-    # hw1_2_1()
-    # hw1_2_2()
-    # hw1_2_3()
-    # hw1_2_4()
     # rx_mem(30)
     # rx_raid(30)
     # h_mem(30)
     # h_raid(30)
     # cp_mem(30)
-    cp_raid(30)
+    # cp_raid(30)
+    qft_mem(31)
+    # qft_raid(28)
 
 def debug():
     file_state = np.fromfile('./cp.raid', dtype=np.complex128)
     print(file_state)
 
 if __name__ == '__main__':
-    # main()
-    debug()
+    main()
+    # debug()

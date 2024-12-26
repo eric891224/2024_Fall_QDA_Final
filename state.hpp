@@ -9,11 +9,12 @@
 
 typedef unsigned long long ull;
 
-#define NUM_THREADS 1
-#define EXPONENT 21
+#define NUM_THREADS 16
+#define EXPONENT 16
 #define CHUNK_SIZE (1 << EXPONENT)
 
-#define BUFFER_SIZE (10 << (26 - EXPONENT))
+#define BUFFER_SIZE (45 << (26 - EXPONENT))
+//#define BUFFER_SIZE 32
 #define NOT_IN_BUFFER BUFFER_SIZE
 #define NOT_IN_FINISHED BUFFER_SIZE
 
@@ -43,6 +44,10 @@ public:
     ull numChunks;
     int numQubitTotal;
 
+    /* memory cahce related */
+    ull cache_hit;
+    ull cache_miss;
+
     std::string state_file_prefix;
     std::string output_file;
 
@@ -51,7 +56,7 @@ public:
 
     Complex *get_chunk_by_id(ull chunk_id);
     void read_chunk(ull chunk_id, ull chunk_buffer_id);
-    void write_back_chunk(ull chunk_buffer_id);
+    void write_back_chunk(ull chunk_id, ull chunk_buffer_id);
     void flush_chunk();
     void push_chunk_to_stack(ull chunk_id);
     void remove_chunk_from_stack(ull chunk_id);

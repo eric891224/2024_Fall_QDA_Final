@@ -164,6 +164,10 @@ ManagedStateVector::ManagedStateVector(int nqbit, std::string state_file_prefix,
     this->state_file_prefix = state_file_prefix;
     this->output_file = output_file;
 
+    /* memory cahce related */
+    cache_hit = 0;
+    cache_miss = 0;
+
     // create state files
     createShardedStateFiles();
 
@@ -171,12 +175,11 @@ ManagedStateVector::ManagedStateVector(int nqbit, std::string state_file_prefix,
     amps_buffer = (Complex **)calloc(BUFFER_SIZE, sizeof(Complex *));
     new_amps_buffer1 = (Complex **)calloc(NUM_THREADS, sizeof(Complex *));
     new_amps_buffer2 = (Complex **)calloc(NUM_THREADS, sizeof(Complex *));
-    // #pragma omp parallel for num_threads(NUM_THREADS)
     for (ull i = 0; i < BUFFER_SIZE; i++)
     {
         amps_buffer[i] = (Complex *)calloc(CHUNK_SIZE, sizeof(Complex));
     }
-    // #pragma omp parallel for num_threads(NUM_THREADS)
+
     for (int i = 0; i < NUM_THREADS; i++)
     {
         new_amps_buffer1[i] = (Complex *)calloc(CHUNK_SIZE, sizeof(Complex));
@@ -185,7 +188,6 @@ ManagedStateVector::ManagedStateVector(int nqbit, std::string state_file_prefix,
 
     // create id mapping: id in storage -> id in buffer
     chunk_buffer_ids = (ull *)calloc(numChunks, sizeof(ull));
-#pragma omp parallel for num_threads(NUM_THREADS)
     for (ull i = 0; i < numChunks; i++)
     {
         chunk_buffer_ids[i] = NOT_IN_BUFFER; // chunk_buffer_ids[i] == NOT_IN_BUFFER -> chunk[i] is in storage
@@ -193,7 +195,6 @@ ManagedStateVector::ManagedStateVector(int nqbit, std::string state_file_prefix,
 
     // create id mapping: id in storage -> id in finished vector (stack)
     chunk_finished_ids = (ull *)calloc(numChunks, sizeof(ull));
-#pragma omp parallel for num_threads(NUM_THREADS)
     for (ull i = 0; i < numChunks; i++)
     {
         chunk_finished_ids[i] = NOT_IN_FINISHED;
@@ -202,6 +203,7 @@ ManagedStateVector::ManagedStateVector(int nqbit, std::string state_file_prefix,
     // pre-load chunks to memory
     std::cout << "buffer size: " << BUFFER_SIZE << ", num chunks: " << numChunks << std::endl;
     ull limit = (BUFFER_SIZE < numChunks) ? BUFFER_SIZE : numChunks;
+
 #pragma omp parallel for num_threads(NUM_THREADS)
     for (ull i = 0; i < limit; i++)
     {
@@ -315,13 +317,13 @@ void ManagedStateVector::concatShardedStateFiles()
     close(out_fd);
 }
 
-void ManagedStateVector::write_back_chunk(ull chunk_id)
+void ManagedStateVector::write_back_chunk(ull chunk_id, ull chunk_buffer_id)
 {
-    ull chunk_buffer_id = chunk_buffer_ids[chunk_id];
-
     if (chunk_buffer_id == NOT_IN_BUFFER)
     {
-        std::cout << "bad! attempt to write a chunk not in memory" << std::endl;
+        // std::cout << "bad! attempt to write chunk" << chunk_id << " that is not in memory" << std::endl;
+        printf("bad! attempt to write chunk %lld that is not in memory\n", chunk_id);
+        fflush(stdout);
         return;
     }
 
@@ -335,15 +337,20 @@ void ManagedStateVector::write_back_chunk(ull chunk_id)
     close(chunk_fd);
 
     // update id mapping
-    chunk_buffer_ids[chunk_id] = NOT_IN_BUFFER;
+    // chunk_buffer_ids[chunk_id] = NOT_IN_BUFFER;
 }
 
 void ManagedStateVector::read_chunk(ull chunk_id, ull chunk_buffer_id)
 {
     if (chunk_buffer_ids[chunk_id] != NOT_IN_BUFFER)
     {
-        std::cout << "bad! attempt to load a chunk already in memory" << std::endl;
+        std::cout << "bad! attempt to load chunk" << chunk_id << " that is already in memory" << std::endl;
         return;
+    }
+    if (chunk_buffer_id >= BUFFER_SIZE)
+    {
+        printf("array out of index\n");
+        fflush(stdout);
     }
 
     // open shard file
@@ -361,34 +368,63 @@ void ManagedStateVector::read_chunk(ull chunk_id, ull chunk_buffer_id)
 
 Complex *ManagedStateVector::get_chunk_by_id(ull chunk_id)
 {
-    // chunk not present in memory, load from storage
-    if (chunk_buffer_ids[chunk_id] == NOT_IN_BUFFER)
-    {
-        // select a memory chunk for swapping
-        ull swapped_chunk_id, swapped_chunk_buffer_id;
+    ull swapped_chunk_id = 0;
+    ull swapped_chunk_buffer_id = 0;
+    bool need_to_load = false;
+
+    // critical section: Determine if the chunk needs to be loaded
 #pragma omp critical(stack)
+    {
+        if (chunk_buffer_ids[chunk_id] == NOT_IN_BUFFER)
         {
+            // Chunk not in memory, prepare for swapping
+            need_to_load = true;
+
+            // Select a memory chunk for swapping
             swapped_chunk_id = finished_stack.back();
             swapped_chunk_buffer_id = chunk_buffer_ids[swapped_chunk_id];
 
-            // update finished stack
+            // Update finished stack
             finished_stack.pop_back();
             chunk_finished_ids[swapped_chunk_id] = NOT_IN_FINISHED;
-        }
 
-        // swap the two chunks
-        write_back_chunk(swapped_chunk_id);
-        read_chunk(chunk_id, swapped_chunk_buffer_id);
-    }
-    else
-#pragma omp critical(stack)
-    {
-        // std::cout << chunk_id << " hit!" << std::endl;
-        // chunk in finished stack, remove it from finished stack
-        if (chunk_finished_ids[chunk_id] != NOT_IN_FINISHED)
+            // Update chunk_buffer_ids to mark the chunks' new location
+            chunk_buffer_ids[swapped_chunk_id] = NOT_IN_BUFFER;
+            // chunk_buffer_ids[chunk_id] = swapped_chunk_buffer_id;
+        }
+        else if (chunk_finished_ids[chunk_id] != NOT_IN_FINISHED)
         {
+            // Chunk in finished stack, remove it from finished stack
             remove_chunk_from_stack(chunk_id);
         }
+    }
+
+    // if (finished_stack.size() > 1430)
+    // {
+    //     if (need_to_load)
+    //         printf("miss, size %d, stack removed %lld\n", finished_stack.size(), swapped_chunk_id);
+    //     else
+    //         printf("hit, size %d, stack removed %lld\n", finished_stack.size(), chunk_id);
+    //     fflush(stdout);
+    // }
+
+    /* memory cahce related */
+    if (need_to_load)
+    {
+    #pragma omp atomic
+        cache_miss++;
+    }
+    else
+    {
+    #pragma omp atomic
+        cache_hit++;
+    }
+
+    // Perform the swap operations outside the critical section
+    if (need_to_load)
+    {
+        write_back_chunk(swapped_chunk_id, swapped_chunk_buffer_id); // Swap out old chunk
+        read_chunk(chunk_id, swapped_chunk_buffer_id);               // Load new chunk
     }
 
     return amps_buffer[chunk_buffer_ids[chunk_id]];
@@ -402,7 +438,7 @@ void ManagedStateVector::flush_chunk()
     {
         if (chunk_buffer_ids[i] != NOT_IN_BUFFER)
         {
-            write_back_chunk(i);
+            write_back_chunk(i, chunk_buffer_ids[i]);
         }
     }
 }
@@ -414,21 +450,24 @@ void ManagedStateVector::push_chunk_to_stack(ull chunk_id)
     {
         finished_stack.push_back(chunk_id);
         chunk_finished_ids[chunk_id] = finished_stack.size() - 1;
+        // if (finished_stack.size() > 1430)
+        // {
+        //     printf("push_chunk_to_stack, size %d, pushed %lld\n", finished_stack.size(), chunk_id);
+        //     fflush(stdout);
+        // }
     }
 }
 
 void ManagedStateVector::remove_chunk_from_stack(ull chunk_id)
 {
     // remove chunk from finished stack
+    for (ull i = chunk_finished_ids[chunk_id] + 1; i < finished_stack.size(); i++)
     {
-        chunk_finished_ids[chunk_id] = NOT_IN_FINISHED;
-        for (ull i = chunk_finished_ids[chunk_id] + 1; i < finished_stack.size(); i++)
-        {
-            chunk_finished_ids[finished_stack[i]] -= 1;
-        }
-
-        finished_stack.erase(finished_stack.begin() + chunk_finished_ids[chunk_id]);
+        chunk_finished_ids[finished_stack[i]] -= 1;
     }
+
+    finished_stack.erase(finished_stack.begin() + chunk_finished_ids[chunk_id]);
+    chunk_finished_ids[chunk_id] = NOT_IN_FINISHED;
 }
 
 void ManagedStateVector::update_amps_1(ull chunk_id, int tid)
@@ -452,12 +491,11 @@ void ManagedStateVector::finish_task()
     concatShardedStateFiles();
 
     // free up space
-#pragma omp parallel for num_threads(NUM_THREADS)
     for (ull i = 0; i < BUFFER_SIZE; i++)
     {
         free(amps_buffer[i]);
     }
-#pragma omp parallel for num_threads(NUM_THREADS)
+
     for (ull i = 0; i < NUM_THREADS; i++)
     {
         free(new_amps_buffer1[i]);
@@ -468,4 +506,8 @@ void ManagedStateVector::finish_task()
     free(new_amps_buffer1);
     free(new_amps_buffer2);
     free(chunk_buffer_ids);
+
+    /* memory cahce related */
+    std::cout << "#cache hit: " << cache_hit << std::endl;
+    std::cout << "#cache miss: " << cache_miss << std::endl;
 }

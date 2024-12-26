@@ -87,28 +87,6 @@ void h_raid_chunk(int n)
     state.finish_task();
 }
 
-/* original chunk implementation
-void rx_raid_chunk(int n)
-{
-    State state;
-    state.numQubitTotal = n;
-    createState(state);
-
-    // file initialization
-    createShardedStateFiles(state, CHUNK_SIZE);
-
-    for (int i = 0; i < n; i++)
-        rxGateRaid(state, M_PI_4, i);
-
-    concatShardedStateFiles(std::string("rx.raid"), state.numAmpTotal >> EXPONENT, CHUNK_SIZE);
-    // ofstream file;
-    // file.open("./rx.raid", ios::binary | ios::out);
-    // file.write((char *)state.stateVec, state.numAmpTotal * sizeof(Complex));
-    // file.close();
-    destroyState(state);
-}
-*/
-
 void rx_raid_chunk(int n)
 {
     ManagedStateVector state(n, "/mnt/raid/states/shard", "rx.raid");
@@ -118,6 +96,44 @@ void rx_raid_chunk(int n)
         rxGateRaid2(state, M_PI_4, i);
     }
     state.finish_task();
+}
+
+void qft_raid(int n)
+{
+    ManagedStateVector state(n, "/mnt/raid/states/shard", "qft.raid");
+
+    for (int i = 0; i < n; i++)
+    {
+        hGateRaid(state, i);
+        for (int j = i + 1; j < n; j++)
+        {
+            // cpGateRaid2(state, M_PI_2 * pow(2, i + 1 - j), std::vector<int>{i, j});
+            hGateRaid(state, j);
+        }
+    }
+    state.finish_task();
+}
+
+void qft_mem(int n)
+{
+    State state;
+    state.numQubitTotal = n;
+    createState(state);
+
+    for (int i = 0; i < n; i++)
+    {
+        hGate(state, i);
+        for (int j = i + 1; j < n; j++)
+        {
+            cpGate(state, M_PI_2 * pow(2, i + 1 - j), std::vector<int>{i, j});
+        }
+    }
+
+    ofstream file;
+    file.open("./qft.mem", ios::binary | ios::out);
+    file.write((char *)state.stateVec, state.numAmpTotal * sizeof(Complex));
+    file.close();
+    destroyState(state);
 }
 
 void cp_mem(int n)
@@ -188,23 +204,14 @@ void hw1_3_4(int n)
 int main(int argc, char *argv[])
 {
     int n = 30;
-    // hw1_3_1(n);
-    // hw1_3_2(n);
-    // hw1_3_3(n);
-    // hw1_3_4(n);
     // rx_mem(n);
     // rx_raid_chunk(n);
     // h_mem(n);
     // h_raid_chunk(n);
     // cp_mem(n);
-    cp_raid_chunk(n);
-    // parallel_write(n);
-
-    // #pragma omp parallel for
-    //     for (int i = 0; i < 1000000; i++)
-    //     {
-    //         std::cout << i << std::endl;
-    //     }
+    // cp_raid_chunk(n);
+    qft_raid(n);
+    // qft_mem(n);
 
     return 0;
 }

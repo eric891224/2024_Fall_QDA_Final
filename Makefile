@@ -1,5 +1,5 @@
 CXX = g++
-CXXFLAGS = -O2 -Wall -fopenmp -g
+CXXFLAGS = -O3 -Wall -fopenmp -g
 
 SRCS := $(wildcard *.cpp)
 

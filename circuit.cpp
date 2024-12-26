@@ -68,7 +68,7 @@ void rxGateRaid(State &state, const double angle, const int targQubit)
     }
 
     int num_tasks = state.numAmpTotal / (CHUNK_SIZE * 2);
-    int group_size = 1 << (targQubit + 1);
+    int group_size = 1ull << (targQubit + 1);
 
 #pragma omp parallel for num_threads(NUM_THREADS)
     for (ull t = 0; t < num_tasks; t++)
@@ -149,36 +149,6 @@ void rxGateRaid(State &state, const double angle, const int targQubit)
     free(amps_2);
     free(new_amps_1);
     free(new_amps_2);
-
-    // #pragma omp parallel for num_threads(16)
-    //     for (ull i = 0; i < state.numAmpTotal >> 1; i++)
-    //     {
-    //         // Complex up, lo;
-    //         // Complex *new_up = (Complex *)calloc(1, sizeof(Complex)), *new_lo = (Complex *)calloc(1, sizeof(Complex));
-
-    //         ull up_off = insert_bit_0(i, targQubit);
-    //         ull lo_off = up_off + (1ull << targQubit);
-
-    //         // TODO: read
-    //         pread(fd, &up, sizeof(Complex), up_off * sizeof(Complex));
-    //         pread(fd, &lo, sizeof(Complex), lo_off * sizeof(Complex));
-
-    //         // TODO: compute
-    //         new_up->real = up.real * cosAngle + lo.imag * sinAngle;
-    //         new_up->imag = up.imag * cosAngle - lo.real * sinAngle;
-    //         new_lo->real = up.imag * sinAngle + lo.real * cosAngle;
-    //         new_lo->imag = -up.real * sinAngle + lo.imag * cosAngle;
-
-    //         // TODO: write
-    //         pwrite(fd, new_up, sizeof(Complex), up_off * sizeof(Complex));
-    //         pwrite(fd, new_lo, sizeof(Complex), lo_off * sizeof(Complex));
-
-    //         free(new_up);
-    //         free(new_lo);
-    //     }
-
-    // free(new_up);
-    // free(new_lo);
 }
 
 void rxGateRaid2(ManagedStateVector &state, const double angle, const int targQubit)
@@ -187,7 +157,7 @@ void rxGateRaid2(ManagedStateVector &state, const double angle, const int targQu
     sincosf64(angle / 2, &sinAngle, &cosAngle);
 
     ull num_tasks = state.numAmpTotal >> (EXPONENT + 1);
-    ull group_size = 1 << (targQubit + 1);
+    ull group_size = 1ull << (targQubit + 1);
 
 #pragma omp parallel for num_threads(NUM_THREADS)
     for (ull t = 0; t < num_tasks; t++)
@@ -276,7 +246,7 @@ void hGateRaid(ManagedStateVector &state, const int targQubit)
     const double coeff = 1 / sqrt(2.f);
 
     ull num_tasks = state.numAmpTotal >> (EXPONENT + 1);
-    ull group_size = 1 << (targQubit + 1);
+    ull group_size = 1ull << (targQubit + 1);
 
 #pragma omp parallel for num_threads(NUM_THREADS)
     for (ull t = 0; t < num_tasks; t++)
@@ -376,7 +346,6 @@ void cpGateRaid(State &state, const double angle, std::vector<int> targQubits)
         new_amps_1[i] = (Complex *)calloc(CHUNK_SIZE, sizeof(Complex));
     }
 
-    // int group_size = 1 << (targQubits[1] + 1);
     ull num_chunk = state.numAmpTotal >> EXPONENT;
 
     std::vector<std::vector<ull>> v;
@@ -386,10 +355,6 @@ void cpGateRaid(State &state, const double angle, std::vector<int> targQubits)
     {
         ull idx = insert_bit_1(i, targQubits[0]);
         idx = insert_bit_1(idx, targQubits[1]);
-        // std::cout << idx << std::endl;
-
-        // if (i >= 10)
-        //     break;
 
         ull cur_chunk_id = idx >> EXPONENT;
         if (cur_chunk_id != pre_chunk_id)
@@ -399,10 +364,6 @@ void cpGateRaid(State &state, const double angle, std::vector<int> targQubits)
         }
         else
             v.back().push_back(idx);
-
-        // std::cout << v.back().back() << std::endl;
-        // if (i >= 10)
-        //     break;
     }
 
 #pragma omp parallel for num_threads(NUM_THREADS)
@@ -446,18 +407,6 @@ void cpGateRaid(State &state, const double angle, std::vector<int> targQubits)
     }
     free(amps_1);
     free(new_amps_1);
-    // for (ull i = 0; i < state.numAmpTotal >> close; i++)
-    // {
-    //     ull idx = insert_bit_1(i, targQubits[0]);
-    //     idx = insert_bit_1(idx, targQubits[1]);
-
-    //     Complex q = state.stateVec[idx], qOut;
-
-    //     // TODO: Implement cp-gates
-    //     qOut.real = q.real * cosAngle - q.imag * sinAngle;
-    //     qOut.imag = q.real * sinAngle + q.imag * cosAngle;
-    //     state.stateVec[idx] = qOut;
-    // }
 }
 
 void cpGateRaid2(ManagedStateVector &state, const double angle, std::vector<int> targQubits)
@@ -472,23 +421,19 @@ void cpGateRaid2(ManagedStateVector &state, const double angle, std::vector<int>
     std::vector<std::vector<ull>> v;
     ull pre_chunk_id = num_chunk;
 
-#pragma omp parallel for num_threads(NUM_THREADS)
     for (ull i = 0; i < state.numAmpTotal >> off; i++)
     {
         ull idx = insert_bit_1(i, targQubits[0]);
         idx = insert_bit_1(idx, targQubits[1]);
 
         ull cur_chunk_id = idx >> EXPONENT;
-#pragma omp critical(task)
+        if (cur_chunk_id != pre_chunk_id)
         {
-            if (cur_chunk_id != pre_chunk_id)
-            {
-                pre_chunk_id = cur_chunk_id;
-                v.push_back(std::vector<ull>{idx});
-            }
-            else
-                v.back().push_back(idx);
+            pre_chunk_id = cur_chunk_id;
+            v.push_back(std::vector<ull>{idx});
         }
+        else
+            v.back().push_back(idx);
     }
 
 #pragma omp parallel for num_threads(NUM_THREADS)
@@ -509,10 +454,11 @@ void cpGateRaid2(ManagedStateVector &state, const double angle, std::vector<int>
 
             new_amps_1[local_idx].real = amps_1[local_idx].real * cosAngle - amps_1[local_idx].imag * sinAngle;
             new_amps_1[local_idx].imag = amps_1[local_idx].real * sinAngle + amps_1[local_idx].imag * cosAngle;
-        }
 
-        // update amps, swapping their address will do
-        state.update_amps_1(chunk_id, tid);
+            // update amps
+            amps_1[local_idx].real = new_amps_1[local_idx].real;
+            amps_1[local_idx].imag = new_amps_1[local_idx].imag;
+        }
 
         // mark finished
         state.push_chunk_to_stack(chunk_id);
