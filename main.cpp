@@ -107,8 +107,8 @@ void qft_raid(int n)
         hGateRaid(state, i);
         for (int j = i + 1; j < n; j++)
         {
-            // cpGateRaid2(state, M_PI_2 * pow(2, i + 1 - j), std::vector<int>{i, j});
-            hGateRaid(state, j);
+            cpGateRaid2(state, M_PI_2 * pow(2, i + 1 - j), std::vector<int>{i, j});
+            // hGateRaid(state, j);
         }
     }
     state.finish_task();
